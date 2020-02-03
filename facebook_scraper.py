@@ -14,6 +14,7 @@ __all__ = ['get_posts']
 
 
 _base_url = 'https://m.facebook.com'
+_reactions_base_url = 'https://m.facebook.com/ufi/reaction/profile/browser/?ft_ent_identifier=' 
 _user_agent = ("Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
                "AppleWebKit/537.36 (KHTML, like Gecko) "
                "Chrome/76.0.3809.87 Safari/537.36")
@@ -36,6 +37,7 @@ _image_regex = re.compile(r"<a href=\"([^\"]+?)\" target=\"_blank\" class=\"sec\
 _image_regex_lq = re.compile(r"background-image: url\('(.+)'\)")
 _post_url_regex = re.compile(r'/story.php\?story_fbid=')
 
+print("LALALA")
 
 def get_posts(account=None, group=None, **kwargs):
     valid_args = sum(arg is not None for arg in (account, group))
@@ -69,7 +71,7 @@ def _get_posts(path, pages=10, timeout=5, sleep=0, credentials=None):
 
     while True:
         for article in html.find('article'):
-            yield _extract_post(article)
+            yield _extract_post(article, _session)
 
         pages -= 1
         if pages == 0:
@@ -95,7 +97,7 @@ def _get_posts(path, pages=10, timeout=5, sleep=0, credentials=None):
                 cursor_blob = action['code']
 
 
-def _extract_post(article):
+def _extract_post(article, session):
     text, post_text, shared_text = _extract_text(article)
     return {
         'post_id': _extract_post_id(article),
@@ -109,6 +111,7 @@ def _extract_post(article):
         'shares':  _find_and_search(article, 'footer', _shares_regex, _parse_int) or 0,
         'post_url': _extract_post_url(article),
         'link': _extract_link(article),
+        'reactions': _extract_reactions(_extract_post_id(article), session)
     }
 
 
@@ -220,6 +223,12 @@ def _extract_post_url(article):
             return f'{_base_url}{path}'
 
     return None
+
+def _extract_reactions(fb_id, session):
+    reactions_url = f"{_reactions_base_url}{fb_id}"
+    response = _session.get(reactions_url, timeout=_timeout)
+    html = HTML(html=response.html.html.replace('<!--','').replace('-->',''))
+    print(html)
 
 
 def _find_and_search(article, selector, pattern, cast=str):
